@@ -67,7 +67,7 @@ struct ContentView: View {
                     Text("TRIPLE JUMP AI")
                         .font(.headline)
                         .fontWeight(.heavy)
-                        .foregroundColor(.white)
+                        .foregroundColor(.chartreuse)
                         .tracking(2)
                 }
             }
