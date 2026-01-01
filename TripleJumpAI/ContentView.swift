@@ -276,7 +276,7 @@ struct ContentView: View {
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.white)
+                .background(Color.chartreuse)
                 .cornerRadius(12)
             }
             .padding(.horizontal)
@@ -365,78 +365,219 @@ struct FullScreenVideoPlayer: View {
     let videoURL: URL
     @Binding var isPresented: Bool
     
-    // Zoom & Pan State
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
+    @State private var player: AVPlayer?
+    @State private var isPlaying: Bool = true
+    @State private var currentTime: Double = 0.0
+    @State private var duration: Double = 1.0
+    @State private var showControls: Bool = true
     
     var body: some View {
         ZStack {
             Color.black.edgesIgnoringSafeArea(.all)
             
-            // The Player
-            VideoPlayer(player: AVPlayer(url: videoURL))
-                .edgesIgnoringSafeArea(.all)
-                .scaleEffect(scale)
-                .offset(offset)
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            let delta = value / lastScale
-                            lastScale = value
-                            scale *= delta
+            // UIKit Player Wrapper
+            if let player = player {
+                ZoomableUIKitPlayer(player: player)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        withAnimation { showControls.toggle() }
+                    }
+            }
+            
+            // Overlay Controls
+            if showControls {
+                VStack {
+                    // Top Bar (Close)
+                    HStack {
+                        Button(action: { isPresented = false }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(10)
+                                .background(Color.chartreuse)
+                                .clipShape(Circle())
                         }
-                        .onEnded { _ in
-                            lastScale = 1.0
-                            withAnimation {
-                                if scale < 1.0 {
-                                    scale = 1.0
-                                    offset = .zero
+                        Spacer()
+                    }
+                    .padding(.leading)
+                    .padding(.top, 40)
+                    
+                    Spacer()
+                    
+                    // Bottom Bar (Playback Controls)
+                    if #available(iOS 26.0, *) {
+                        VStack(spacing: 15) {
+                            // Slider
+                            Slider(value: Binding(get: { currentTime }, set: { newVal in
+                                currentTime = newVal
+                                player?.seek(to: CMTime(seconds: newVal, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                            }), in: 0...duration)
+                            .accentColor(.chartreuse)
+                            .onAppear {
+                                // Custom slider thumb appearance hack if needed, or stick to standard accent
+                            }
+                            
+                            HStack(spacing: 40) {
+                                // Backward 5s
+                                Button(action: { seek(by: -5) }) {
+                                    Image(systemName: "gobackward.5")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                // Play/Pause
+                                Button(action: togglePlayPause) {
+                                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.black)
+                                        .padding(15)
+                                        .background(Color.chartreuse)
+                                        .clipShape(Circle())
+                                }
+                                
+                                // Forward 5s
+                                Button(action: { seek(by: 5) }) {
+                                    Image(systemName: "goforward.5")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
                                 }
                             }
                         }
-                )
-                .simultaneousGesture(
-                    DragGesture()
-                        .onChanged { value in
-                            let deltaWidth = value.translation.width - lastOffset.width
-                            let deltaHeight = value.translation.height - lastOffset.height
-                            lastOffset = value.translation
-                            offset.width += deltaWidth
-                            offset.height += deltaHeight
-                        }
-                        .onEnded { _ in
-                            lastOffset = .zero
-                        }
-                )
-                .onTapGesture(count: 2) {
-                    withAnimation {
-                        scale = 1.0
-                        offset = .zero
+                        .padding(20)
+                        .glassEffect(in: RoundedRectangle(cornerRadius: 20))
+                        .padding(.horizontal)
+                        .padding(.bottom, 40)
+                    } else {
+                        // Fallback on earlier versions
                     }
                 }
-            
-            // Overlay Controls
-            VStack {
-                HStack {
-                    Button(action: { isPresented = false }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.black)
-                            .padding(10)
-                            .background(Color.chartreuse)
-                            .clipShape(Circle())
-                    }
-                    .padding(.leading)
-                    .padding(.top, 40) // Account for notch
-                    
-                    Spacer()
-                }
-                Spacer()
             }
         }
-        .statusBar(hidden: true) // Hide status bar for immersion
+        .statusBar(hidden: true)
+        .onAppear {
+            setupPlayer()
+        }
+    }
+    
+    func setupPlayer() {
+        let newPlayer = AVPlayer(url: videoURL)
+        self.player = newPlayer
+        newPlayer.play()
+        
+        // Observe Duration
+        let asset = AVAsset(url: videoURL)
+        Task {
+            if let dur = try? await asset.load(.duration) {
+                await MainActor.run { self.duration = dur.seconds }
+            }
+        }
+        
+        // Observe Time
+        newPlayer.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main) { time in
+            self.currentTime = time.seconds
+            // Loop video
+            if time.seconds >= self.duration - 0.1 {
+                self.player?.seek(to: .zero)
+                self.player?.play()
+            }
+        }
+    }
+    
+    func togglePlayPause() {
+        guard let player = player else { return }
+        if isPlaying {
+            player.pause()
+        } else {
+            player.play()
+        }
+        isPlaying.toggle()
+    }
+    
+    func seek(by seconds: Double) {
+        guard let player = player else { return }
+        let newTime = player.currentTime().seconds + seconds
+        player.seek(to: CMTime(seconds: newTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+}
+
+// MARK: - UIKit Bridge
+struct ZoomableUIKitPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+    
+    func makeUIViewController(context: Context) -> ZoomableVideoViewController {
+        return ZoomableVideoViewController(player: player)
+    }
+    
+    func updateUIViewController(_ uiViewController: ZoomableVideoViewController, context: Context) {
+        // No updates needed
+    }
+}
+
+// MARK: - UIKit View Controller
+class ZoomableVideoViewController: UIViewController, UIScrollViewDelegate {
+    let player: AVPlayer
+    var playerLayer: AVPlayerLayer?
+    var scrollView: UIScrollView!
+    var contentContainer: UIView!
+    
+    init(player: AVPlayer) {
+        self.player = player
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        
+        // 1. Setup ScrollView
+        scrollView = UIScrollView(frame: view.bounds)
+        scrollView.delegate = self
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 5.0
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.bouncesZoom = true
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(scrollView)
+        
+        // 2. Setup Container
+        contentContainer = UIView(frame: scrollView.bounds)
+        contentContainer.backgroundColor = .black
+        scrollView.addSubview(contentContainer)
+        
+        // 3. Setup Player Layer
+        playerLayer = AVPlayerLayer(player: player)
+        playerLayer?.videoGravity = .resizeAspect
+        playerLayer?.frame = contentContainer.bounds
+        contentContainer.layer.addSublayer(playerLayer!)
+        
+        // 4. Double Tap Gesture
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        doubleTap.numberOfTapsRequired = 2
+        view.addGestureRecognizer(doubleTap)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if scrollView.zoomScale == 1.0 {
+            scrollView.contentSize = view.bounds.size
+            contentContainer.frame = view.bounds
+            playerLayer?.frame = view.bounds
+        }
+    }
+    
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return contentContainer
+    }
+    
+    @objc func handleDoubleTap() {
+        if scrollView.zoomScale > 1.0 {
+            scrollView.setZoomScale(1.0, animated: true)
+        } else {
+            scrollView.setZoomScale(2.5, animated: true)
+        }
     }
 }
 
@@ -473,4 +614,9 @@ struct StatRow: View {
             Text(value).font(.system(size: 14, weight: .medium, design: .monospaced)).foregroundColor(isBad ? .red : .chartreuse)
         }
     }
+}
+
+#Preview {
+    @Previewable @State var presented: Bool = true
+    FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), isPresented: $presented)
 }
