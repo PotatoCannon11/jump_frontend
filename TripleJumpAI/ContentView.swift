@@ -93,18 +93,7 @@ struct ContentView: View {
         VStack(spacing: 35) {
             Spacer().frame(height: 20)
             
-            ZStack {
-                Circle()
-                    .stroke(Color.chartreuse.opacity(0.3), lineWidth: 2)
-                    .frame(width: 140, height: 140)
-                
-                Image(systemName: "figure.run.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 100)
-                    .foregroundColor(.chartreuse)
-                    .shadow(color: .chartreuse.opacity(0.6), radius: 10)
-            }
+            PulsingLogoView()
             
             VStack(spacing: 10) {
                 Text("ANALYZE TECHNIQUE")
@@ -612,6 +601,47 @@ struct StatRow: View {
             Text(label).font(.system(size: 10, weight: .bold)).foregroundColor(.gray)
             Spacer()
             Text(value).font(.system(size: 14, weight: .medium, design: .monospaced)).foregroundColor(isBad ? .red : .chartreuse)
+        }
+    }
+}
+
+// MARK: - Pulsing Logo Component
+struct PulsingLogoView: View {
+    @State private var animateWaves = false
+    
+    var body: some View {
+        ZStack {
+            // Wave 1
+            Circle()
+                .stroke(Color.chartreuse.opacity(0.5), lineWidth: 1)
+                .frame(width: 140, height: 140)
+                .scaleEffect(animateWaves ? 1.5 : 1)
+                .opacity(animateWaves ? 0 : 1)
+                .animation(Animation.easeOut(duration: 2).repeatForever(autoreverses: false), value: animateWaves)
+            
+            // Wave 2
+            Circle()
+                .stroke(Color.chartreuse.opacity(0.5), lineWidth: 1)
+                .frame(width: 140, height: 140)
+                .scaleEffect(animateWaves ? 1.5 : 1)
+                .opacity(animateWaves ? 0 : 1)
+                .animation(Animation.easeOut(duration: 2).repeatForever(autoreverses: false).delay(1), value: animateWaves)
+            
+            // Main Circle
+            Circle()
+                .stroke(Color.chartreuse.opacity(0.3), lineWidth: 2)
+                .frame(width: 140, height: 140)
+            
+            // Icon
+            Image(systemName: "figure.run.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 100)
+                .foregroundColor(.chartreuse)
+                .shadow(color: .chartreuse.opacity(0.6), radius: 10)
+        }
+        .onAppear {
+            animateWaves = true
         }
     }
 }
