@@ -11,5 +11,7 @@
 	<array>
 		<string>_http._tcp</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>
