@@ -43,7 +43,8 @@ class JumpMasterAPI {
     static let shared = JumpMasterAPI()
     
     // Update this with your server IP/domain
-    private let baseURL = "http://192.168.1.83:5000"
+    //private let baseURL = "http://192.168.1.83:5000" at home
+    private let baseURL = "http://172.20.10.3:5000" //usb
     
     private init() {}
     
