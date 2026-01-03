@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var analyzedVideoURL: URL?
     @State private var showFullScreen: Bool = false // NEW: Fullscreen state
     
+    @State private var healthCheckTimer: Timer?
+    
     // Error Handling
     @State private var errorMessage: String?
     @State private var showError: Bool = false
@@ -32,22 +34,25 @@ struct ContentView: View {
                     VStack(spacing: 25) {
                         
                         // 1. Server Health
-                        HStack {
-                            Circle()
-                                .fill(serverStatus ? Color.chartreuse : Color.red)
-                                .frame(width: 8, height: 8)
-                                .shadow(color: serverStatus ? .chartreuse : .red, radius: 4)
-                            
-                            Text(serverStatus ? "SYSTEM ONLINE" : "CONNECTING...")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .tracking(1)
-                                .foregroundColor(serverStatus ? .chartreuse : .gray)
-                            Spacer()
+                        Button(action: checkServerHealth) {
+                            HStack {
+                                Circle()
+                                    .fill(serverStatus ? Color.chartreuse : Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .shadow(color: serverStatus ? .chartreuse : .red, radius: 4)
+                                
+                                Text(serverStatus ? "SYSTEM ONLINE" : "OFFLINE - TAP TO RETRY")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .tracking(1)
+                                    .foregroundColor(serverStatus ? .chartreuse : .gray)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 10)
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 10)
-                        .onAppear { checkServerHealth() }
+                        .onAppear { startHealthCheckTimer() }
+                        .onDisappear { stopHealthCheckTimer() }
 
                         // 2. Main Content Switcher
                         if isAnalyzing {
@@ -93,7 +98,7 @@ struct ContentView: View {
         VStack(spacing: 35) {
             Spacer().frame(height: 20)
             
-            PulsingLogoView()
+            PulsingLogoView(isConnected: serverStatus)
             
             VStack(spacing: 10) {
                 Text("ANALYZE TECHNIQUE")
@@ -275,6 +280,20 @@ struct ContentView: View {
     
     // ... [Logic functions remain the same as previous: checkServerHealth, processSelection, etc.] ...
     
+    func startHealthCheckTimer() {
+        checkServerHealth() // Initial check
+        if healthCheckTimer == nil {
+            healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+                checkServerHealth()
+            }
+        }
+    }
+    
+    func stopHealthCheckTimer() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
+    }
+
     func checkServerHealth() {
         JumpMasterAPI.shared.healthCheck { result in
             DispatchQueue.main.async {
@@ -349,7 +368,7 @@ struct ContentView: View {
     }
 }
 
-// MARK: - NEW: Dedicated Fullscreen Player View
+// MARK: - Dedicated Fullscreen Player View
 struct FullScreenVideoPlayer: View {
     let videoURL: URL
     @Binding var isPresented: Bool
@@ -607,29 +626,34 @@ struct StatRow: View {
 
 // MARK: - Pulsing Logo Component
 struct PulsingLogoView: View {
+    var isConnected: Bool
     @State private var animateWaves = false
+    
+    var activeColor: Color {
+        isConnected ? .chartreuse : .gray
+    }
     
     var body: some View {
         ZStack {
             // Wave 1
             Circle()
-                .stroke(Color.chartreuse.opacity(0.5), lineWidth: 1)
+                .stroke(activeColor.opacity(0.5), lineWidth: 1)
                 .frame(width: 140, height: 140)
                 .scaleEffect(animateWaves ? 1.5 : 1)
                 .opacity(animateWaves ? 0 : 1)
-                .animation(Animation.easeOut(duration: 2).repeatForever(autoreverses: false), value: animateWaves)
+                .animation(animateWaves ? Animation.easeOut(duration: 2).repeatForever(autoreverses: false) : .default, value: animateWaves)
             
             // Wave 2
             Circle()
-                .stroke(Color.chartreuse.opacity(0.5), lineWidth: 1)
+                .stroke(activeColor.opacity(0.5), lineWidth: 1)
                 .frame(width: 140, height: 140)
                 .scaleEffect(animateWaves ? 1.5 : 1)
                 .opacity(animateWaves ? 0 : 1)
-                .animation(Animation.easeOut(duration: 2).repeatForever(autoreverses: false).delay(1), value: animateWaves)
+                .animation(animateWaves ? Animation.easeOut(duration: 2).repeatForever(autoreverses: false).delay(1) : .default, value: animateWaves)
             
             // Main Circle
             Circle()
-                .stroke(Color.chartreuse.opacity(0.3), lineWidth: 2)
+                .stroke(activeColor.opacity(0.3), lineWidth: 2)
                 .frame(width: 140, height: 140)
             
             // Icon
@@ -637,16 +661,24 @@ struct PulsingLogoView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(height: 100)
-                .foregroundColor(.chartreuse)
-                .shadow(color: .chartreuse.opacity(0.6), radius: 10)
+                .foregroundColor(activeColor)
+                .shadow(color: isConnected ? activeColor.opacity(0.6) : .clear, radius: 10)
         }
         .onAppear {
-            animateWaves = true
+            if isConnected { animateWaves = true }
+        }
+        .onChange(of: isConnected) { connected in
+            animateWaves = connected
         }
     }
 }
 
+// MARK: - Preview
+
 #Preview {
     @Previewable @State var presented: Bool = true
     FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), isPresented: $presented)
+}
+#Preview {
+    ContentView()
 }
