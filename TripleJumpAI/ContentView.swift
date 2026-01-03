@@ -345,7 +345,17 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 self.isAnalyzing = false
                 switch result {
-                case .success(let url): self.analyzedVideoURL = url
+                case .success(let url):
+                    self.analyzedVideoURL = url
+                    // Cleanup server copy after successful download
+                    JumpMasterAPI.shared.cleanup(analysisId: id) { cleanupResult in
+                        switch cleanupResult {
+                        case .success:
+                            print("Server cleanup successful for ID: \(id)")
+                        case .failure(let error):
+                            print("Server cleanup failed: \(error.localizedDescription)")
+                        }
+                    }
                 case .failure(let error): self.triggerError(error.localizedDescription)
                 }
             }
