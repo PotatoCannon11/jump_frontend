@@ -8,6 +8,7 @@ struct AnalysisResponse: Codable {
     let coachFeedback: String
     let phases: [String: PhaseData]
     let videoUrl: String
+    let worstMistakeTimestamp: Double?
     
     enum CodingKeys: String, CodingKey {
         case analysisId = "analysis_id"
@@ -15,6 +16,7 @@ struct AnalysisResponse: Codable {
         case coachFeedback = "coach_feedback"
         case phases
         case videoUrl = "video_url"
+        case worstMistakeTimestamp = "worst_mistake_timestamp"
     }
 }
 
@@ -43,8 +45,9 @@ class JumpMasterAPI {
     static let shared = JumpMasterAPI()
     
     // Update this with your server IP/domain
-    private let baseURL = "http://192.168.1.83:5000" //at home
+    //private let baseURL = "http://192.168.1.83:5000" //at home
     //private let baseURL = "http://172.20.10.3:5000" //usb
+    private let baseURL = "http://100.76.191.100:5000" //tailscale
     
     private init() {}
     

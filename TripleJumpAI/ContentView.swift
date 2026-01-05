@@ -79,7 +79,7 @@ struct ContentView: View {
             // NEW: Fullscreen Video Cover
             .fullScreenCover(isPresented: $showFullScreen) {
                 if let url = analyzedVideoURL {
-                    FullScreenVideoPlayer(videoURL: url, isPresented: $showFullScreen)
+                    FullScreenVideoPlayer(videoURL: url, mistakeTimestamp: analysisResult?.worstMistakeTimestamp, isPresented: $showFullScreen)
                 }
             }
             .alert("Error", isPresented: $showError) {
@@ -381,6 +381,7 @@ struct ContentView: View {
 // MARK: - Dedicated Fullscreen Player View
 struct FullScreenVideoPlayer: View {
     let videoURL: URL
+    let mistakeTimestamp: Double? // Added: Mistake Timestamp
     @Binding var isPresented: Bool
     
     @State private var player: AVPlayer?
@@ -423,17 +424,29 @@ struct FullScreenVideoPlayer: View {
                     Spacer()
                     
                     // Bottom Bar (Playback Controls)
-                    if #available(iOS 26.0, *) {
+                    if #available(iOS 16.0, *) {
                         VStack(spacing: 15) {
-                            // Slider
-                            Slider(value: Binding(get: { currentTime }, set: { newVal in
-                                currentTime = newVal
-                                player?.seek(to: CMTime(seconds: newVal, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-                            }), in: 0...duration)
-                            .accentColor(.chartreuse)
-                            .onAppear {
-                                // Custom slider thumb appearance hack if needed, or stick to standard accent
+                            // Slider with Mistake Marker
+                            ZStack(alignment: .leading) {
+                                Slider(value: Binding(get: { currentTime }, set: { newVal in
+                                    currentTime = newVal
+                                    player?.seek(to: CMTime(seconds: newVal, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                                }), in: 0...duration)
+                                .accentColor(.chartreuse)
+                                
+                                // Mistake Marker Overlay
+                                if let mistakeTime = mistakeTimestamp, duration > 0 {
+                                    GeometryReader { geometry in
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 12, height: 12)
+                                            .overlay(Circle().stroke(Color.white, lineWidth: 1))
+                                            .position(x: (CGFloat(mistakeTime) / CGFloat(duration)) * geometry.size.width, y: geometry.size.height / 2)
+                                    }
+                                    .allowsHitTesting(false) // Pass touches through to Slider
+                                }
                             }
+                            .frame(height: 20) // Constrain height for GeometryReader
                             
                             HStack(spacing: 40) {
                                 // Backward 5s
@@ -687,7 +700,7 @@ struct PulsingLogoView: View {
 
 #Preview {
     @Previewable @State var presented: Bool = true
-    FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), isPresented: $presented)
+    FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), mistakeTimestamp: nil, isPresented: $presented)
 }
 #Preview {
     ContentView()
