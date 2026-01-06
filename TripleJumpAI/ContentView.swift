@@ -282,7 +282,7 @@ struct ContentView: View {
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.white)
+                .background(Color.chartreuse)
                 .cornerRadius(12)
             }
             .padding(.horizontal)
