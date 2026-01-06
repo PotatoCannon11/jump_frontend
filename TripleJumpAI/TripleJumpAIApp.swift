@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct TripleJumpAIApp: App {
+    // MARK: - Main Entry Point
     var body: some Scene {
         WindowGroup {
             ContentView()
