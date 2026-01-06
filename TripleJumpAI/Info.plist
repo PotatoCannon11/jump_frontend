@@ -13,5 +13,7 @@
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need access to your photo library to save analyzed videos.</string>
 </dict>
 </plist>

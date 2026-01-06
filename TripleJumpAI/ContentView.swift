@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Photos
 import AVKit
 
 // MARK: - 1. Theme Extensions
@@ -23,6 +24,10 @@ struct ContentView: View {
     // Error Handling
     @State private var errorMessage: String?
     @State private var showError: Bool = false
+    
+    // Save Video State
+    @State private var saveMessage: String?
+    @State private var showSaveAlert: Bool = false
 
     // MARK: - Body
     var body: some View {
@@ -86,6 +91,11 @@ struct ContentView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage ?? "Unknown error")
+            }
+            .alert("Save Video", isPresented: $showSaveAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(saveMessage ?? "")
             }
         }
         .preferredColorScheme(.dark)
@@ -259,7 +269,26 @@ struct ContentView: View {
                 }
             }
             
-            // D. Reset
+            // D. Save to Camera Roll
+            Button(action: {
+                saveToCameraRoll(url: videoURL)
+            }) {
+                HStack {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("SAVE TO CAMERA ROLL")
+                }
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.white)
+                .cornerRadius(12)
+            }
+            .padding(.horizontal)
+            .padding(.top, 10)
+
+            // E. Reset
             Button(action: resetAnalysis) {
                 HStack {
                     Image(systemName: "arrow.counterclockwise")
@@ -274,7 +303,7 @@ struct ContentView: View {
                 .cornerRadius(12)
             }
             .padding(.horizontal)
-            .padding(.top, 10)
+            .padding(.bottom, 20) // Added padding at bottom
         }
     }
     
@@ -368,6 +397,30 @@ struct ContentView: View {
         analyzedVideoURL = nil
         isAnalyzing = false
         uploadProgress = 0
+    }
+    
+    func saveToCameraRoll(url: URL) {
+        PHPhotoLibrary.requestAuthorization { status in
+            guard status == .authorized || status == .limited else {
+                DispatchQueue.main.async {
+                    self.triggerError("Permission to access photo library is denied.")
+                }
+                return
+            }
+            
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }) { saved, error in
+                DispatchQueue.main.async {
+                    if saved {
+                        self.saveMessage = "Video saved to your Photos album!"
+                        self.showSaveAlert = true
+                    } else {
+                        self.triggerError(error?.localizedDescription ?? "Failed to save video.")
+                    }
+                }
+            }
+        }
     }
     
     func triggerError(_ msg: String) {
