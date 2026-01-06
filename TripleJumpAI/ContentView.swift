@@ -389,6 +389,12 @@ struct FullScreenVideoPlayer: View {
     @State private var currentTime: Double = 0.0
     @State private var duration: Double = 1.0
     @State private var showControls: Bool = true
+    @State private var isScrubbing: Bool = false
+    
+    @Environment(\.verticalSizeClass) var verticalSizeClass
+    
+    var isLandscape: Bool { verticalSizeClass == .compact }
+    var hideUI: Bool { isLandscape && isScrubbing }
     
     var body: some View {
         ZStack {
@@ -407,77 +413,68 @@ struct FullScreenVideoPlayer: View {
             if showControls {
                 VStack {
                     // Top Bar (Close)
-                    HStack {
-                        Button(action: { isPresented = false }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.black)
-                                .padding(10)
-                                .background(Color.chartreuse)
-                                .clipShape(Circle())
+                    if !hideUI {
+                        HStack {
+                            Button(action: { isPresented = false }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.black)
+                                    .padding(10)
+                                    .background(Color.chartreuse)
+                                    .clipShape(Circle())
+                            }
+                            Spacer()
                         }
-                        Spacer()
+                        .padding(.leading)
+                        .padding(.top, 40)
                     }
-                    .padding(.leading)
-                    .padding(.top, 40)
                     
                     Spacer()
                     
                     // Bottom Bar (Playback Controls)
                     if #available(iOS 16.0, *) {
-                        VStack(spacing: 15) {
-                            // Slider with Mistake Marker
-                            ZStack(alignment: .leading) {
-                                Slider(value: Binding(get: { currentTime }, set: { newVal in
-                                    currentTime = newVal
-                                    player?.seek(to: CMTime(seconds: newVal, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-                                }), in: 0...duration)
-                                .accentColor(.chartreuse)
+                        if hideUI {
+                            VStack(spacing: 15) {
+                                scrubberView
+                            }
+                            .padding(20)
+                            .padding(.horizontal)
+                            .padding(.bottom, 40)
+                        } else {
+                            VStack(spacing: 15) {
+                                scrubberView
                                 
-                                // Mistake Marker Overlay
-                                if let mistakeTime = mistakeTimestamp, duration > 0 {
-                                    GeometryReader { geometry in
-                                        Circle()
-                                            .fill(Color.red)
-                                            .frame(width: 12, height: 12)
-                                            .overlay(Circle().stroke(Color.white, lineWidth: 1))
-                                            .position(x: (CGFloat(mistakeTime) / CGFloat(duration)) * geometry.size.width, y: geometry.size.height / 2)
+                                HStack(spacing: 40) {
+                                    // Backward 5s
+                                    Button(action: { seek(by: -5) }) {
+                                        Image(systemName: "gobackward.5")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
                                     }
-                                    .allowsHitTesting(false) // Pass touches through to Slider
+                                    
+                                    // Play/Pause
+                                    Button(action: togglePlayPause) {
+                                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                            .font(.system(size: 24, weight: .bold))
+                                            .foregroundColor(.black)
+                                            .padding(15)
+                                            .background(Color.chartreuse)
+                                            .clipShape(Circle())
+                                    }
+                                    
+                                    // Forward 5s
+                                    Button(action: { seek(by: 5) }) {
+                                        Image(systemName: "goforward.5")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
                                 }
                             }
-                            .frame(height: 20) // Constrain height for GeometryReader
-                            
-                            HStack(spacing: 40) {
-                                // Backward 5s
-                                Button(action: { seek(by: -5) }) {
-                                    Image(systemName: "gobackward.5")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                }
-                                
-                                // Play/Pause
-                                Button(action: togglePlayPause) {
-                                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(.black)
-                                        .padding(15)
-                                        .background(Color.chartreuse)
-                                        .clipShape(Circle())
-                                }
-                                
-                                // Forward 5s
-                                Button(action: { seek(by: 5) }) {
-                                    Image(systemName: "goforward.5")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                }
-                            }
+                            .padding(20)
+                            .glassEffect(in: RoundedRectangle(cornerRadius: 20))
+                            .padding(.horizontal)
+                            .padding(.bottom, 40)
                         }
-                        .padding(20)
-                        .glassEffect(in: RoundedRectangle(cornerRadius: 20))
-                        .padding(.horizontal)
-                        .padding(.bottom, 40)
                     } else {
                         // Fallback on earlier versions
                     }
@@ -488,6 +485,32 @@ struct FullScreenVideoPlayer: View {
         .onAppear {
             setupPlayer()
         }
+    }
+    
+    var scrubberView: some View {
+        // Slider with Mistake Marker
+        ZStack(alignment: .leading) {
+            Slider(value: Binding(get: { currentTime }, set: { newVal in
+                currentTime = newVal
+                player?.seek(to: CMTime(seconds: newVal, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            }), in: 0...duration, onEditingChanged: { editing in
+                isScrubbing = editing
+            })
+            .accentColor(.chartreuse)
+            
+            // Mistake Marker Overlay
+            if let mistakeTime = mistakeTimestamp, duration > 0 {
+                GeometryReader { geometry in
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 1))
+                        .position(x: (CGFloat(mistakeTime) / CGFloat(duration)) * geometry.size.width, y: geometry.size.height / 2)
+                }
+                .allowsHitTesting(false) // Pass touches through to Slider
+            }
+        }
+        .frame(height: 20) // Constrain height for GeometryReader
     }
     
     func setupPlayer() {
