@@ -774,10 +774,36 @@ struct PulsingLogoView: View {
 
 // MARK: - Preview
 
-#Preview {
+#Preview("Full Screen Player") {
     @Previewable @State var presented: Bool = true
-    FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), mistakeTimestamp: nil, isPresented: $presented)
+    FullScreenVideoPlayer(videoURL: URL(fileURLWithPath: ""), mistakeTimestamp: 2.5, isPresented: $presented)
 }
-#Preview {
+
+#Preview("Results Screen") {
+    ZStack {
+        Color.black.edgesIgnoringSafeArea(.all)
+        ScrollView {
+            ContentView().resultsView(
+                result: AnalysisResponse(
+                    analysisId: "preview_id",
+                    timestamp: "2024-01-06T12:00:00Z",
+                    coachFeedback: "Your hop phase shows good explosive power, but your transition into the skip is causing significant braking force. Focus on maintaining a more upright torso (currently 28°) to preserve horizontal velocity.",
+                    phases: [
+                        "HOP": PhaseData(leg: "Right", angle: 142, braking: 0.12, torso: 18, peakForce: 4.5),
+                        "SKIP": PhaseData(leg: "Left", angle: 128, braking: 0.38, torso: 28, peakForce: 3.2),
+                        "JUMP": PhaseData(leg: "Both", angle: 148, braking: 0.08, torso: 12, peakForce: 5.1)
+                    ],
+                    videoUrl: "",
+                    worstMistakeTimestamp: 2.1
+                ),
+                videoURL: URL(string: "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4")!
+            )
+        }
+    }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Main Content") {
     ContentView()
 }
+
