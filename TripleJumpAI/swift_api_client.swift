@@ -47,7 +47,8 @@ class JumpMasterAPI {
     // Update this with your server IP/domain
     //private let baseURL = "http://192.168.1.83:5000" //at home
     //private let baseURL = "http://172.20.10.3:5000" //usb
-    private let baseURL = "http://100.76.191.100:5000" //tailscale
+    //private let baseURL = "http://100.76.191.100:5000" //tailscale
+    private let baseURL = "https://henrys-macbook-air.tail21aa88.ts.net/" //tailscale funnel
     
     private init() {}
     
