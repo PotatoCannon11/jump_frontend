@@ -757,10 +757,10 @@ struct PhaseCard: View {
             }
             Rectangle().frame(height: 1).foregroundColor(textColor.opacity(0.1))
             VStack(spacing: 8) {
-                StatRow(label: "FORCE", value: String(format: "%.1f G", data.peakForce), isBad: data.peakForce < 3.5, labelColor: .gray, valueColor: accentColor)
-                StatRow(label: "ANGLE", value: "\(data.angle)°", isBad: data.angle < 135, labelColor: .gray, valueColor: accentColor)
-                StatRow(label: "BRAKE", value: String(format: "%.2f m", data.braking), isBad: data.braking > 0.30, labelColor: .gray, valueColor: accentColor)
-                StatRow(label: "LEAN", value: "\(data.torso)°", isBad: data.torso > 25, labelColor: .gray, valueColor: accentColor)
+                StatRow(label: "FORCE", value: String(format: "%.1f G", data.peakForce), isBad: data.peakForce < 3.5, labelColor: .gray)
+                StatRow(label: "ANGLE", value: "\(data.angle)°", isBad: data.angle < 135, labelColor: .gray)
+                StatRow(label: "BRAKE", value: String(format: "%.2f m", data.braking), isBad: data.braking > 0.30, labelColor: .gray)
+                StatRow(label: "LEAN", value: "\(data.torso)°", isBad: data.torso > 25, labelColor: .gray)
             }
         }
         .padding()
@@ -776,7 +776,6 @@ struct StatRow: View {
     let value: String
     let isBad: Bool
     var labelColor: Color = .gray
-    var valueColor: Color = .chartreuse
     
     var body: some View {
         HStack {
@@ -784,7 +783,7 @@ struct StatRow: View {
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundColor(isBad ? .red : valueColor)
+                .foregroundColor(isBad ? .red : .green)
         }
     }
 }
