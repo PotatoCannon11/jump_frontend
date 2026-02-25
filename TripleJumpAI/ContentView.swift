@@ -56,6 +56,9 @@ struct ContentView: View {
     @State private var saveMessage: String?
     @State private var showSaveAlert: Bool = false
 
+    // Help
+    @State private var showHelp: Bool = false
+
     // MARK: - 3. Body
     var body: some View {
         NavigationView {
@@ -100,6 +103,13 @@ struct ContentView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showHelp = true }) {
+                        Image(systemName: "questionmark.circle")
+                            .foregroundColor(themeAccent)
+                    }
+                }
+
                 ToolbarItem(placement: .principal) {
                     Text("TRIPLE JUMP AI")
                         .font(.headline)
@@ -107,7 +117,7 @@ struct ContentView: View {
                         .foregroundColor(themeAccent)
                         .tracking(2)
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         withAnimation {
@@ -118,6 +128,9 @@ struct ContentView: View {
                             .foregroundColor(themeAccent)
                     }
                 }
+            }
+            .sheet(isPresented: $showHelp) {
+                HelpView(accentColor: themeAccent)
             }
             // NEW: Fullscreen Video Cover
             .fullScreenCover(isPresented: $showFullScreen) {
@@ -834,6 +847,221 @@ struct PulsingLogoView: View {
         }
         .onChange(of: isConnected) { connected in
             animateWaves = connected
+        }
+    }
+}
+
+// MARK: - Help View
+
+struct HelpView: View {
+    var accentColor: Color = .chartreuse
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 15/255, green: 23/255, blue: 42/255)
+                    .edgesIgnoringSafeArea(.all)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 32) {
+
+                        // Intro
+                        HelpSection(
+                            icon: "figure.run.circle.fill",
+                            title: "Welcome to JumpSense",
+                            accentColor: accentColor
+                        ) {
+                            Text("JumpSense uses computer vision and biomechanical analysis to break down your triple jump technique — giving you actionable, data-driven coaching feedback in seconds.")
+                        }
+
+                        // Step 1
+                        HelpSection(
+                            icon: "arrow.up.circle.fill",
+                            title: "Step 1 — Upload Your Video",
+                            accentColor: accentColor
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Tap the **UPLOAD VIDEO** button on the main screen and choose a slow-motion or high-framerate video from your photo library.")
+                                HelpTip(text: "For best results, film from the side at hip height using 240 fps slow-motion.", accentColor: accentColor)
+                                HelpTip(text: "The server status indicator at the top must show **SYSTEM ONLINE** before uploading.", accentColor: accentColor)
+                            }
+                        }
+
+                        // Step 2
+                        HelpSection(
+                            icon: "waveform.path.ecg",
+                            title: "Step 2 — AI Analysis",
+                            accentColor: accentColor
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Once uploaded, the AI automatically detects your body's key landmarks and measures the three phases of your jump:")
+                                HelpPhaseRow(phase: "HOP", description: "The explosive first takeoff from the board.", accentColor: accentColor)
+                                HelpPhaseRow(phase: "SKIP", description: "The binding phase that transfers energy between hop and jump.", accentColor: accentColor)
+                                HelpPhaseRow(phase: "JUMP", description: "The final takeoff driving you into the pit.", accentColor: accentColor)
+                            }
+                        }
+
+                        // Step 3 — Metrics
+                        HelpSection(
+                            icon: "gauge.with.needle.fill",
+                            title: "Step 3 — Reading Your Metrics",
+                            accentColor: accentColor
+                        ) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Each phase card shows four key biomechanical metrics. Values are shown in **green** when within optimal range and **red** when they need improvement.")
+                                HelpMetricRow(label: "FORCE", icon: "bolt.fill", description: "Peak ground reaction force in G's. Higher values (≥ 3.5 G) indicate explosive, efficient landings.", accentColor: accentColor)
+                                HelpMetricRow(label: "ANGLE", icon: "angle", description: "Knee angle at landing in degrees. Angles ≥ 135° help preserve forward momentum.", accentColor: accentColor)
+                                HelpMetricRow(label: "BRAKE", icon: "hand.raised.fill", description: "Horizontal braking distance in meters. Lower values (≤ 0.30 m) mean less energy loss.", accentColor: accentColor)
+                                HelpMetricRow(label: "LEAN", icon: "person.fill", description: "Torso lean angle in degrees. Values ≤ 25° keep you upright and maintain horizontal velocity.", accentColor: accentColor)
+                            }
+                        }
+
+                        // Step 4 — Video Review
+                        HelpSection(
+                            icon: "play.rectangle.fill",
+                            title: "Step 4 — Review the Video",
+                            accentColor: accentColor
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("After analysis, a video player shows your jump with the AI overlay. Tap the **expand** icon to open the full-screen player.")
+                                HelpTip(text: "A **red marker** on the scrubber highlights the moment the AI identified your biggest technical error.", accentColor: accentColor)
+                                HelpTip(text: "Pinch to zoom and double-tap to reset zoom in the full-screen player.", accentColor: accentColor)
+                            }
+                        }
+
+                        // Server
+                        HelpSection(
+                            icon: "server.rack",
+                            title: "Server Status",
+                            accentColor: accentColor
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("The indicator at the top of the screen shows whether the analysis server is reachable. The app checks automatically every 5 seconds.")
+                                HelpTip(text: "If the server shows **OFFLINE**, tap the indicator to retry. Make sure your device has an internet connection.", accentColor: accentColor)
+                            }
+                        }
+
+                        Spacer(minLength: 20)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("HOW TO USE")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(accentColor)
+                        .tracking(2)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                            .font(.title3)
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Help Subcomponents
+
+private struct HelpSection<Content: View>: View {
+    let icon: String
+    let title: String
+    let accentColor: Color
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(accentColor)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(accentColor.opacity(0.3))
+            content()
+                .font(.body)
+                .foregroundColor(Color(white: 0.8))
+        }
+    }
+}
+
+private struct HelpTip: View {
+    let text: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "lightbulb.fill")
+                .font(.caption)
+                .foregroundColor(accentColor)
+                .padding(.top, 3)
+            Text(.init(text))
+                .font(.subheadline)
+                .foregroundColor(Color(white: 0.65))
+        }
+        .padding(10)
+        .background(accentColor.opacity(0.08))
+        .cornerRadius(8)
+    }
+}
+
+private struct HelpPhaseRow: View {
+    let phase: String
+    let description: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(phase)
+                .font(.caption)
+                .fontWeight(.heavy)
+                .foregroundColor(.black)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(accentColor)
+                .cornerRadius(4)
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(Color(white: 0.75))
+        }
+    }
+}
+
+private struct HelpMetricRow: View {
+    let label: String
+    let icon: String
+    let description: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(accentColor)
+                Text(label)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.gray)
+            }
+            .frame(width: 44)
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(Color(white: 0.75))
         }
     }
 }
