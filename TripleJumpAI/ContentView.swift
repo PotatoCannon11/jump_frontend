@@ -111,7 +111,7 @@ struct ContentView: View {
                 }
 
                 ToolbarItem(placement: .principal) {
-                    Text("TRIPLE JUMP AI")
+                    Text("JumpSense")
                         .font(.headline)
                         .fontWeight(.heavy)
                         .foregroundColor(themeAccent)
@@ -119,18 +119,24 @@ struct ContentView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        withAnimation {
-                            useNewTheme.toggle()
-                        }
-                    }) {
-                        Image(systemName: useNewTheme ? "paintpalette.fill" : "paintpalette")
+                    if !isAnalyzing && analysisResult == nil {
+                        Button(action: {
+                            withAnimation {
+                                useNewTheme.toggle()
+                            }
+                        }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: useNewTheme ? "paintpalette.fill" : "paintpalette")
+                                Text(useNewTheme ? "Long Jump" : "Triple Jump")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
                             .foregroundColor(themeAccent)
+                        }
                     }
                 }
             }
             .sheet(isPresented: $showHelp) {
-                HelpView(accentColor: themeAccent)
+                HelpView(accentColor: themeAccent, isLongJumpMode: useNewTheme)
             }
             // NEW: Fullscreen Video Cover
             .fullScreenCover(isPresented: $showFullScreen) {
@@ -306,7 +312,8 @@ struct ContentView: View {
                     .tracking(1)
                     .padding(.horizontal)
                 
-                let sortedPhases = ["HOP", "SKIP", "JUMP"].compactMap { name in
+                let phaseNames = useNewTheme ? ["JUMP"] : ["HOP", "SKIP", "JUMP"]
+                let sortedPhases = phaseNames.compactMap { name in
                     result.phases[name].map { (name, $0) }
                 }
                 
@@ -406,7 +413,8 @@ struct ContentView: View {
         do {
             if FileManager.default.fileExists(atPath: tempURL.path) { try FileManager.default.removeItem(at: tempURL) }
             try data.write(to: tempURL)
-            JumpMasterAPI.shared.analyzeJump(videoURL: tempURL) { progress in
+            let mode = self.useNewTheme ? "long" : "triple"
+            JumpMasterAPI.shared.analyzeJump(videoURL: tempURL, jumpMode: mode) { progress in
                 DispatchQueue.main.async { self.uploadProgress = progress }
             } completion: { result in
                 DispatchQueue.main.async {
@@ -855,7 +863,10 @@ struct PulsingLogoView: View {
 
 struct HelpView: View {
     var accentColor: Color = .chartreuse
+    var isLongJumpMode: Bool = false
     @Environment(\.dismiss) private var dismiss
+
+    private var jumpType: String { isLongJumpMode ? "long jump" : "triple jump" }
 
     var body: some View {
         NavigationView {
@@ -872,7 +883,9 @@ struct HelpView: View {
                             title: "Welcome to JumpSense",
                             accentColor: accentColor
                         ) {
-                            Text("JumpSense uses computer vision and biomechanical analysis to break down your triple jump technique — giving you actionable, data-driven coaching feedback in seconds.")
+                            Text(isLongJumpMode
+                                 ? "JumpSense uses computer vision and biomechanical analysis to break down your long jump technique — giving you actionable, data-driven coaching feedback in seconds."
+                                 : "JumpSense uses computer vision and biomechanical analysis to break down your triple jump technique — giving you actionable, data-driven coaching feedback in seconds.")
                         }
 
                         // Step 1
@@ -883,7 +896,7 @@ struct HelpView: View {
                         ) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Tap the **UPLOAD VIDEO** button on the main screen and choose a slow-motion or high-framerate video from your photo library.")
-                                HelpTip(text: "For best results, film from the side at hip height using 240 fps slow-motion.", accentColor: accentColor)
+                                HelpTip(text: "For best results, film from the side at hip height using 240 fps slow-motion. Then trim the video to start right before the jump and end right after.", accentColor: accentColor)
                                 HelpTip(text: "The server status indicator at the top must show **SYSTEM ONLINE** before uploading.", accentColor: accentColor)
                             }
                         }
@@ -894,11 +907,19 @@ struct HelpView: View {
                             title: "Step 2 — AI Analysis",
                             accentColor: accentColor
                         ) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Once uploaded, the AI automatically detects your body's key landmarks and measures the three phases of your jump:")
-                                HelpPhaseRow(phase: "HOP", description: "The explosive first takeoff from the board.", accentColor: accentColor)
-                                HelpPhaseRow(phase: "SKIP", description: "The binding phase that transfers energy between hop and jump.", accentColor: accentColor)
-                                HelpPhaseRow(phase: "JUMP", description: "The final takeoff driving you into the pit.", accentColor: accentColor)
+                            if isLongJumpMode {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Once uploaded, the AI automatically detects your body's key landmarks returns metrics from your jump:")
+                                    HelpPhaseRow(phase: "JUMP", description: "The airborne phase maintaining balance and preparing for landing.", accentColor: accentColor)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Once uploaded, the AI automatically detects your body's key landmarks and measures the three phases of your jump:")
+                                    HelpPhaseRow(phase: "HOP", description: "The explosive first takeoff from the board.", accentColor: accentColor)
+                                    HelpPhaseRow(phase: "SKIP", description: "The binding phase that transfers energy between hop and jump.", accentColor: accentColor)
+                                    HelpPhaseRow(phase: "JUMP", description: "The final takeoff driving you into the pit.", accentColor: accentColor)
+                                    HelpTip(text: "If all of the phase cards aren't appearing, it is likely due to a poor camera angle.", accentColor: accentColor)
+                                }
                             }
                         }
 
@@ -908,12 +929,22 @@ struct HelpView: View {
                             title: "Step 3 — Reading Your Metrics",
                             accentColor: accentColor
                         ) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Each phase card shows four key biomechanical metrics. Values are shown in **green** when within optimal range and **red** when they need improvement.")
-                                HelpMetricRow(label: "FORCE", icon: "bolt.fill", description: "Peak ground reaction force in G's. Higher values (≥ 3.5 G) indicate explosive, efficient landings.", accentColor: accentColor)
-                                HelpMetricRow(label: "ANGLE", icon: "angle", description: "Knee angle at landing in degrees. Angles ≥ 135° help preserve forward momentum.", accentColor: accentColor)
-                                HelpMetricRow(label: "BRAKE", icon: "hand.raised.fill", description: "Horizontal braking distance in meters. Lower values (≤ 0.30 m) mean less energy loss.", accentColor: accentColor)
-                                HelpMetricRow(label: "LEAN", icon: "person.fill", description: "Torso lean angle in degrees. Values ≤ 25° keep you upright and maintain horizontal velocity.", accentColor: accentColor)
+                            if isLongJumpMode {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("The phase card shows key biomechanical metrics. Values are shown in **green** when within optimal range and **red** when they need improvement.")
+                                    HelpMetricRow(label: "FORCE", icon: "bolt.fill", description: "Peak ground reaction force in G's. Higher values (≥ 3.5 G) indicates an explosive takeoff strike.", accentColor: accentColor)
+                                    HelpMetricRow(label: "ANGLE", icon: "angle", description: "Knee angle at landing in degrees. Angles ≥ 135° help preserve forward momentum.", accentColor: accentColor)
+                                    HelpMetricRow(label: "BRAKE", icon: "hand.raised.fill", description: "Horizontal braking distance in meters. Lower values (≤ 0.30 m) mean less energy loss.", accentColor: accentColor)
+                                    HelpMetricRow(label: "LEAN", icon: "person.fill", description: "Torso lean angle in degrees. Values ≤ 25° keep you upright and maintain horizontal velocity.", accentColor: accentColor)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Each phase card shows four key biomechanical metrics. Values are shown in **green** when within optimal range and **red** when they need improvement.")
+                                    HelpMetricRow(label: "FORCE", icon: "bolt.fill", description: "Peak ground reaction force in G's. Higher values (≥ 3.5 G) indicate explosive, efficient landings.", accentColor: accentColor)
+                                    HelpMetricRow(label: "ANGLE", icon: "angle", description: "Knee angle at landing in degrees. Angles ≥ 135° help preserve forward momentum.", accentColor: accentColor)
+                                    HelpMetricRow(label: "BRAKE", icon: "hand.raised.fill", description: "Horizontal braking distance in meters. Lower values (≤ 0.30 m) mean less energy loss.", accentColor: accentColor)
+                                    HelpMetricRow(label: "LEAN", icon: "person.fill", description: "Torso lean angle in degrees. Values ≤ 25° keep you upright and maintain horizontal velocity.", accentColor: accentColor)
+                                }
                             }
                         }
 
@@ -924,7 +955,7 @@ struct HelpView: View {
                             accentColor: accentColor
                         ) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("After analysis, a video player shows your jump with the AI overlay. Tap the **expand** icon to open the full-screen player.")
+                                Text("After analysis, a video player shows your \(jumpType) with the AI overlay. Tap the **expand** icon to open the full-screen player.")
                                 HelpTip(text: "A **red marker** on the scrubber highlights the moment the AI identified your biggest technical error.", accentColor: accentColor)
                                 HelpTip(text: "Pinch to zoom and double-tap to reset zoom in the full-screen player.", accentColor: accentColor)
                             }
