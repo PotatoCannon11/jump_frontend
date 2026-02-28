@@ -75,21 +75,26 @@ class JumpMasterAPI {
     }
     
     // MARK: - Analyze Jump
-    func analyzeJump(videoURL: URL, progress: @escaping (Double) -> Void, completion: @escaping (Result<AnalysisResponse, Error>) -> Void) {
+    func analyzeJump(videoURL: URL, jumpMode: String = "triple", progress: @escaping (Double) -> Void, completion: @escaping (Result<AnalysisResponse, Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/analyze") else {
             completion(.failure(NSError(domain: "Invalid URL", code: -1)))
             return
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        
+
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        
+
         // Create multipart form data
         var body = Data()
-        
+
+        // Add jump_mode field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"jump_mode\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(jumpMode)\r\n".data(using: .utf8)!)
+
         // Add video file
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"video\"; filename=\"jump.mp4\"\r\n".data(using: .utf8)!)
