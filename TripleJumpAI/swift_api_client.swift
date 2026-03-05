@@ -40,17 +40,33 @@ struct ErrorResponse: Codable {
     let error: String
 }
 
+// MARK: - Upload Progress Delegate
+private class UploadProgressDelegate: NSObject, URLSessionTaskDelegate {
+    let progressHandler: (Double) -> Void
+
+    init(progressHandler: @escaping (Double) -> Void) {
+        self.progressHandler = progressHandler
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        let uploadFraction = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
+        // Upload phase is 0.0 to 0.5
+        progressHandler(uploadFraction * 0.5)
+    }
+}
+
 // MARK: - API Client
 class JumpMasterAPI {
     static let shared = JumpMasterAPI()
-    
+
     // Update this with your server IP/domain
     //private let baseURL = "http://192.168.1.83:5000" //at home
     //private let baseURL = "http://172.20.10.3:5000" //usb
     //private let baseURL = "http://100.76.191.100:5000" //tailscale
     //private let baseURL = "https://henrys-macbook-air.tail21aa88.ts.net/" //tailscale funnel
     private let baseURL = "https://api.jumpsense.xyz/"
-    
+
     private init() {}
     
     // MARK: - Health Check
@@ -111,9 +127,14 @@ class JumpMasterAPI {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         
         // Upload with progress tracking
-        let session = URLSession(configuration: .default, delegate: nil, delegateQueue: nil)
-        
+        let delegate = UploadProgressDelegate { fraction in
+            DispatchQueue.main.async { progress(fraction) }
+        }
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+
         let task = session.uploadTask(with: request, from: body) { data, response, error in
+            // Signal upload complete, entering server processing phase
+            DispatchQueue.main.async { progress(0.5) }
             if let error = error {
                 completion(.failure(error))
                 return

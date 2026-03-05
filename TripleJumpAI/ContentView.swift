@@ -47,6 +47,7 @@ struct ContentView: View {
     
     // Timers
     @State private var healthCheckTimer: Timer?
+    @State private var processingTimer: Timer?
     
     // Error Handling
     @State private var errorMessage: String?
@@ -221,7 +222,7 @@ struct ContentView: View {
             
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("UPLOADING")
+                    Text(uploadProgress < 0.5 ? "UPLOADING" : "ANALYZING")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.gray)
@@ -417,7 +418,7 @@ struct ContentView: View {
     
     func processSelection(item: PhotosPickerItem) {
         self.isAnalyzing = true
-        self.uploadProgress = 0.1
+        self.uploadProgress = 0.0
         item.loadTransferable(type: Data.self) { result in
             DispatchQueue.main.async {
                 switch result {
@@ -450,11 +451,20 @@ struct ContentView: View {
 
                     let mode = self.useNewTheme ? "long" : "triple"
                     JumpMasterAPI.shared.analyzeJump(videoURL: uploadURL, jumpMode: mode) { progress in
-                        DispatchQueue.main.async { self.uploadProgress = progress }
+                        DispatchQueue.main.async {
+                            self.uploadProgress = progress
+                            // Start simulated processing timer once upload completes
+                            if progress >= 0.5 && self.processingTimer == nil {
+                                self.startProcessingTimer()
+                            }
+                        }
                     } completion: { result in
                         DispatchQueue.main.async {
+                            self.processingTimer?.invalidate()
+                            self.processingTimer = nil
                             switch result {
                             case .success(let response):
+                                self.uploadProgress = 1.0
                                 self.analysisResult = response
                                 self.downloadResultVideo(id: response.analysisId)
                             case .failure(let error): self.triggerError(error.localizedDescription)
@@ -507,12 +517,29 @@ struct ContentView: View {
         }
     }
     
+    func startProcessingTimer() {
+        processingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if self.uploadProgress < 0.95 {
+                    // Slow down as we approach 0.95 for a natural feel
+                    let remaining = 0.95 - self.uploadProgress
+                    self.uploadProgress += remaining * 0.05
+                } else {
+                    self.processingTimer?.invalidate()
+                    self.processingTimer = nil
+                }
+            }
+        }
+    }
+
     func resetAnalysis() {
         selectedItem = nil
         analysisResult = nil
         analyzedVideoURL = nil
         isAnalyzing = false
         uploadProgress = 0
+        processingTimer?.invalidate()
+        processingTimer = nil
     }
     
     func saveToCameraRoll(url: URL) {
