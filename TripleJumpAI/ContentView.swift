@@ -58,6 +58,7 @@ struct ContentView: View {
 
     // Help
     @State private var showHelp: Bool = false
+    @State private var showShareSheet: Bool = false
 
     // MARK: - 3. Body
     var body: some View {
@@ -327,21 +328,42 @@ struct ContentView: View {
                 }
             }
             
-            // D. Save to Camera Roll
-            Button(action: {
-                saveToCameraRoll(url: videoURL)
-            }) {
-                HStack {
-                    Image(systemName: "square.and.arrow.down")
-                    Text("SAVE TO CAMERA ROLL")
+            // D. Save to Camera Roll & Share
+            HStack(spacing: 12) {
+                Button(action: {
+                    saveToCameraRoll(url: videoURL)
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("SAVE")
+                    }
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(useNewTheme ? .white : .black)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(themeAccent)
+                    .cornerRadius(12)
                 }
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(useNewTheme ? .white : .black)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(themeAccent)
-                .cornerRadius(12)
+
+                Button(action: {
+                    showShareSheet = true
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("SHARE")
+                    }
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(useNewTheme ? .white : .black)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(themeAccent)
+                    .cornerRadius(12)
+                }
+                .sheet(isPresented: $showShareSheet) {
+                    ShareSheet(activityItems: [videoURL])
+                }
             }
             .padding(.horizontal)
             .padding(.top, 10)
@@ -666,6 +688,17 @@ struct FullScreenVideoPlayer: View {
         let newTime = player.currentTime().seconds + seconds
         player.seek(to: CMTime(seconds: newTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
     }
+}
+
+// MARK: - Share Sheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - UIKit Bridge
