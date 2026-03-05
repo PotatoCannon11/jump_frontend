@@ -432,23 +432,57 @@ struct ContentView: View {
     
     func saveAndUpload(data: Data) {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("upload_jump.mp4")
+        let compressedURL = FileManager.default.temporaryDirectory.appendingPathComponent("upload_jump_compressed.mp4")
         do {
             if FileManager.default.fileExists(atPath: tempURL.path) { try FileManager.default.removeItem(at: tempURL) }
+            if FileManager.default.fileExists(atPath: compressedURL.path) { try FileManager.default.removeItem(at: compressedURL) }
             try data.write(to: tempURL)
-            let mode = self.useNewTheme ? "long" : "triple"
-            JumpMasterAPI.shared.analyzeJump(videoURL: tempURL, jumpMode: mode) { progress in
-                DispatchQueue.main.async { self.uploadProgress = progress }
-            } completion: { result in
+
+            compressVideo(inputURL: tempURL, outputURL: compressedURL) { result in
                 DispatchQueue.main.async {
+                    let uploadURL: URL
                     switch result {
-                    case .success(let response):
-                        self.analysisResult = response
-                        self.downloadResultVideo(id: response.analysisId)
-                    case .failure(let error): self.triggerError(error.localizedDescription)
+                    case .success(let url): uploadURL = url
+                    case .failure:
+                        // Fall back to original if compression fails
+                        uploadURL = tempURL
+                    }
+
+                    let mode = self.useNewTheme ? "long" : "triple"
+                    JumpMasterAPI.shared.analyzeJump(videoURL: uploadURL, jumpMode: mode) { progress in
+                        DispatchQueue.main.async { self.uploadProgress = progress }
+                    } completion: { result in
+                        DispatchQueue.main.async {
+                            switch result {
+                            case .success(let response):
+                                self.analysisResult = response
+                                self.downloadResultVideo(id: response.analysisId)
+                            case .failure(let error): self.triggerError(error.localizedDescription)
+                            }
+                        }
                     }
                 }
             }
         } catch { triggerError("File error") }
+    }
+
+    func compressVideo(inputURL: URL, outputURL: URL, completion: @escaping (Result<URL, Error>) -> Void) {
+        let asset = AVAsset(url: inputURL)
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else {
+            completion(.failure(NSError(domain: "Cannot create export session", code: -1)))
+            return
+        }
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.exportAsynchronously {
+            switch exportSession.status {
+            case .completed:
+                completion(.success(outputURL))
+            default:
+                completion(.failure(exportSession.error ?? NSError(domain: "Export failed", code: -1)))
+            }
+        }
     }
     
     func downloadResultVideo(id: String) {
